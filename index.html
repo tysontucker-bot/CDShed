@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Disable zoom for iPad app-like feel -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- iOS full-screen / app-like settings -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <title>My Schedule</title>
+
+  <style>
+    /* ============================================================
+       GLOBAL RESET & BASE STYLES
+    ============================================================ */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;             /* No scrolling — full screen */
+      touch-action: manipulation;  /* Disable double-tap zoom */
+      -webkit-user-select: none;   /* Disable text selection */
+      user-select: none;
+    }
+
+    body {
+      background: #d0e8f5;         /* Soft blue background */
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ============================================================
+       MAIN SCHEDULE SCREEN
+    ============================================================ */
+    #app {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 32px 24px 24px;
+    }
+
+    /* Progress indicator at top */
+    #progress-label {
+      font-size: 20px;
+      font-weight: 600;
+      color: #3a5f7a;
+      letter-spacing: 0.5px;
+    }
+
+    /* ---- Event card ---- */
+    #event-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    #event-icon {
+      font-size: 120px;
+      line-height: 1;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+    }
+
+    #event-title {
+      font-size: 52px;
+      font-weight: 700;
+      color: #1a3a50;
+      text-align: center;
+      line-height: 1.15;
+    }
+
+    /* ---- Stars ---- */
+    #stars-row {
+      display: flex;
+      gap: 24px;
+      margin: 8px 0;
+    }
+
+    .star {
+      font-size: 72px;
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease;
+      filter: grayscale(100%) brightness(0.8);   /* Gray state */
+      /* Large touch target */
+      padding: 8px;
+      border-radius: 50%;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .star.filled {
+      filter: none;                               /* Gold emoji in full color */
+      animation: star-pop 0.25s ease;
+    }
+
+    @keyframes star-pop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.35); }
+      100% { transform: scale(1); }
+    }
+
+    /* ---- Reward buttons ---- */
+    #reward-row {
+      display: flex;
+      gap: 20px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    .reward-btn {
+      flex: 1;
+      height: 90px;
+      background: #4caf50;          /* Green */
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      border: none;
+      border-radius: 18px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 12px rgba(76,175,80,0.4);
+    }
+
+    .reward-btn:disabled {
+      background: #b0bec5;          /* Muted gray when disabled */
+      color: #78909c;
+      box-shadow: none;
+      cursor: not-allowed;
+    }
+
+    .reward-btn:not(:disabled):active {
+      transform: scale(0.96);
+      background: #388e3c;
+    }
+
+    /* ---- Next Event button ---- */
+    #next-btn {
+      width: 100%;
+      max-width: 640px;
+      height: 80px;
+      background: #1e88e5;          /* Blue */
+      color: #fff;
+      font-size: 26px;
+      font-weight: 700;
+      border: none;
+      border-radius: 18px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 12px rgba(30,136,229,0.4);
+      letter-spacing: 0.5px;
+    }
+
+    #next-btn:active {
+      transform: scale(0.97);
+      background: #1565c0;
+    }
+
+    #next-btn:disabled {
+      background: #90caf9;
+      box-shadow: none;
+      cursor: default;
+    }
+
+    /* ============================================================
+       CELEBRATION OVERLAY
+    ============================================================ */
+    #celebration {
+      display: none;                /* Hidden by default */
+      position: fixed;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.96);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      z-index: 100;
+    }
+
+    #celebration.visible {
+      display: flex;
+    }
+
+    #celebration-emoji {
+      font-size: 100px;
+      animation: bounce 0.6s infinite alternate ease-in-out;
+    }
+
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to   { transform: translateY(-20px); }
+    }
+
+    #celebration-message {
+      font-size: 40px;
+      font-weight: 700;
+      color: #1a3a50;
+      text-align: center;
+      line-height: 1.25;
+      padding: 0 24px;
+    }
+
+    #continue-btn {
+      width: 320px;
+      height: 90px;
+      background: #4caf50;
+      color: #fff;
+      font-size: 28px;
+      font-weight: 700;
+      border: none;
+      border-radius: 18px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(76,175,80,0.4);
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    #continue-btn:active {
+      transform: scale(0.96);
+      background: #388e3c;
+    }
+
+    /* ---- Confetti canvas (sits behind the text/buttons) ---- */
+    #confetti-canvas {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ============================================================
+       MAIN APP SCREEN
+  ============================================================ -->
+  <div id="app">
+    <!-- Step counter e.g. "Activity 1 of 5" -->
+    <div id="progress-label"></div>
+
+    <!-- Current event display -->
+    <div id="event-card">
+      <div id="event-icon"></div>
+      <div id="event-title"></div>
+    </div>
+
+    <!-- 3 stars — tap to fill gold -->
+    <div id="stars-row">
+      <span class="star" data-index="0">⭐</span>
+      <span class="star" data-index="1">⭐</span>
+      <span class="star" data-index="2">⭐</span>
+    </div>
+
+    <!-- Reward choices — unlocked when all 3 stars are earned -->
+    <div id="reward-row">
+      <button class="reward-btn" id="reward-btn-1" disabled></button>
+      <button class="reward-btn" id="reward-btn-2" disabled></button>
+    </div>
+
+    <!-- Advance to next activity -->
+    <button id="next-btn">Next Activity ➜</button>
+  </div>
+
+  <!-- ============================================================
+       CELEBRATION OVERLAY (shown after a reward is chosen)
+  ============================================================ -->
+  <div id="celebration">
+    <canvas id="confetti-canvas"></canvas>
+    <div id="celebration-emoji">🎉</div>
+    <div id="celebration-message"></div>
+    <button id="continue-btn">Continue ➜</button>
+  </div>
+
+  <script>
+    /* ============================================================
+       ★  EDITABLE SECTION — Teachers, edit this! ★
+       Add or remove events below. Each event needs:
+         title        — what the activity is called
+         icon         — an emoji that represents the activity
+         rewardOption1 — first reward choice label
+         rewardOption2 — second reward choice label
+    ============================================================ */
+    const events = [
+      {
+        title: "Morning Circle",
+        icon: "🌞",
+        rewardOption1: "5 min Free Play",
+        rewardOption2: "Sticker"
+      },
+      {
+        title: "Reading Time",
+        icon: "📚",
+        rewardOption1: "Choose a Book",
+        rewardOption2: "Computer Time"
+      },
+      {
+        title: "Math",
+        icon: "🔢",
+        rewardOption1: "iPad Game",
+        rewardOption2: "Play-Doh"
+      },
+      {
+        title: "Snack",
+        icon: "🍎",
+        rewardOption1: "Extra Snack",
+        rewardOption2: "Sit with a Friend"
+      },
+      {
+        title: "Art",
+        icon: "🎨",
+        rewardOption1: "Show Your Work",
+        rewardOption2: "Take It Home"
+      },
+      {
+        title: "Outdoor Recess",
+        icon: "⚽",
+        rewardOption1: "Choose the Game",
+        rewardOption2: "Extra 5 Minutes"
+      },
+      {
+        title: "Lunch",
+        icon: "🥪",
+        rewardOption1: "Sit Outside",
+        rewardOption2: "Pick a Movie"
+      },
+      {
+        title: "Pack Up & Go Home",
+        icon: "🎒",
+        rewardOption1: "High Five",
+        rewardOption2: "Stamp on Hand"
+      }
+    ];
+    /* ============================================================
+       END OF EDITABLE SECTION
+    ============================================================ */
+
+
+    /* ============================================================
+       APP STATE
+    ============================================================ */
+    let currentIndex = 0;   // Which event we're on
+    let starsEarned  = 0;   // How many stars tapped so far
+
+
+    /* ============================================================
+       DOM REFERENCES
+    ============================================================ */
+    const progressLabel   = document.getElementById('progress-label');
+    const eventIcon       = document.getElementById('event-icon');
+    const eventTitle      = document.getElementById('event-title');
+    const starEls         = document.querySelectorAll('.star');
+    const rewardBtn1      = document.getElementById('reward-btn-1');
+    const rewardBtn2      = document.getElementById('reward-btn-2');
+    const nextBtn         = document.getElementById('next-btn');
+    const celebration     = document.getElementById('celebration');
+    const celebrationMsg  = document.getElementById('celebration-message');
+    const continueBtn     = document.getElementById('continue-btn');
+    const confettiCanvas  = document.getElementById('confetti-canvas');
+
+
+    /* ============================================================
+       RENDER CURRENT EVENT
+    ============================================================ */
+    function renderEvent() {
+      const event = events[currentIndex];
+
+      // Progress label
+      progressLabel.textContent = `Activity ${currentIndex + 1} of ${events.length}`;
+
+      // Event display
+      eventIcon.textContent  = event.icon;
+      eventTitle.textContent = event.title;
+
+      // Reward buttons
+      rewardBtn1.textContent = event.rewardOption1;
+      rewardBtn2.textContent = event.rewardOption2;
+
+      // Reset stars
+      starsEarned = 0;
+      starEls.forEach(s => s.classList.remove('filled'));
+
+      // Disable rewards and next button until stars earned
+      lockRewards();
+
+      // Disable next button when we're on the last event and rewards not yet chosen
+      // (The next button advances the slide; on the last event it shows "All Done!")
+      updateNextBtn();
+    }
+
+    /* Disable reward buttons */
+    function lockRewards() {
+      rewardBtn1.disabled = true;
+      rewardBtn2.disabled = true;
+    }
+
+    /* Enable reward buttons */
+    function unlockRewards() {
+      rewardBtn1.disabled = false;
+      rewardBtn2.disabled = false;
+    }
+
+    /* Keep "Next Activity" label accurate */
+    function updateNextBtn() {
+      if (currentIndex >= events.length - 1) {
+        nextBtn.textContent = 'All Done! 🎓';
+      } else {
+        nextBtn.textContent = 'Next Activity ➜';
+      }
+      // Next button always available (teacher can skip stars if needed)
+      nextBtn.disabled = false;
+    }
+
+
+    /* ============================================================
+       STAR TAPPING
+    ============================================================ */
+    starEls.forEach(star => {
+      star.addEventListener('click', () => {
+        if (star.classList.contains('filled')) return; // Can't un-fill a star
+
+        star.classList.add('filled');
+        starsEarned++;
+
+        if (starsEarned >= 3) {
+          unlockRewards();
+        }
+      });
+    });
+
+
+    /* ============================================================
+       REWARD BUTTONS
+    ============================================================ */
+    function handleRewardChosen(rewardName) {
+      // Show the celebration overlay
+      celebrationMsg.innerHTML = `You chose:<br>"${rewardName}"! 🌟`;
+      celebration.classList.add('visible');
+
+      // Kick off confetti
+      startConfetti();
+    }
+
+    rewardBtn1.addEventListener('click', () => {
+      if (!rewardBtn1.disabled) handleRewardChosen(rewardBtn1.textContent);
+    });
+
+    rewardBtn2.addEventListener('click', () => {
+      if (!rewardBtn2.disabled) handleRewardChosen(rewardBtn2.textContent);
+    });
+
+
+    /* ============================================================
+       NEXT EVENT BUTTON
+    ============================================================ */
+    nextBtn.addEventListener('click', () => {
+      if (currentIndex < events.length - 1) {
+        currentIndex++;
+        renderEvent();
+      } else {
+        // We're at the last event — show a final well-done overlay
+        celebrationMsg.innerHTML = 'Great job today! 🎓<br>Schedule complete!';
+        celebration.classList.add('visible');
+        startConfetti();
+        continueBtn.style.display = 'none'; // No more events to continue to
+      }
+    });
+
+
+    /* ============================================================
+       CONTINUE BUTTON (inside celebration overlay)
+    ============================================================ */
+    continueBtn.addEventListener('click', () => {
+      stopConfetti();
+      celebration.classList.remove('visible');
+      continueBtn.style.display = '';       // Restore for next time
+
+      // Advance to next event after reward is chosen
+      if (currentIndex < events.length - 1) {
+        currentIndex++;
+        renderEvent();
+      } else {
+        // Last event — reset to beginning
+        currentIndex = 0;
+        renderEvent();
+      }
+    });
+
+
+    /* ============================================================
+       CONFETTI ANIMATION
+       Simple canvas-based confetti — no external libraries.
+    ============================================================ */
+    const CONFETTI_COUNT  = 120;
+    const CONFETTI_COLORS = ['#ffd700','#ff6b6b','#4ecdc4','#45b7d1','#96ceb4','#ff9f43','#a29bfe'];
+    let confettiParticles = [];
+    let confettiAnimId    = null;
+    let confettiRunning   = false;
+
+    function resizeConfettiCanvas() {
+      confettiCanvas.width  = window.innerWidth;
+      confettiCanvas.height = window.innerHeight;
+    }
+
+    function createParticle() {
+      return {
+        x:      Math.random() * confettiCanvas.width,
+        y:      -Math.random() * confettiCanvas.height,   // Start above screen
+        w:      8 + Math.random() * 10,
+        h:      4 + Math.random() * 6,
+        color:  CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        speed:  3 + Math.random() * 4,
+        angle:  Math.random() * 2 * Math.PI,
+        spin:   (Math.random() - 0.5) * 0.2,
+        drift:  (Math.random() - 0.5) * 2
+      };
+    }
+
+    function startConfetti() {
+      resizeConfettiCanvas();
+      confettiParticles = Array.from({ length: CONFETTI_COUNT }, createParticle);
+      confettiRunning   = true;
+      animateConfetti();
+    }
+
+    function stopConfetti() {
+      confettiRunning = false;
+      if (confettiAnimId) {
+        cancelAnimationFrame(confettiAnimId);
+        confettiAnimId = null;
+      }
+      const ctx = confettiCanvas.getContext('2d');
+      ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+      confettiParticles = [];
+    }
+
+    function animateConfetti() {
+      if (!confettiRunning) return;
+
+      const ctx = confettiCanvas.getContext('2d');
+      ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+      confettiParticles.forEach(p => {
+        // Move particle
+        p.y     += p.speed;
+        p.x     += p.drift;
+        p.angle += p.spin;
+
+        // Recycle when off-screen
+        if (p.y > confettiCanvas.height + 20) {
+          p.y = -20;
+          p.x = Math.random() * confettiCanvas.width;
+        }
+
+        // Draw a rotated rectangle
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+
+      confettiAnimId = requestAnimationFrame(animateConfetti);
+    }
+
+    // Keep canvas sized correctly on orientation change
+    window.addEventListener('resize', () => {
+      if (confettiRunning) resizeConfettiCanvas();
+    });
+
+
+    /* ============================================================
+       INIT
+    ============================================================ */
+    renderEvent();
+
+  </script>
+</body>
+</html>

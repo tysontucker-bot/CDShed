@@ -1,179 +1,223 @@
 <!doctype html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Visual Schedule</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visual Schedule Pro</title>
 
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Google Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⭐</text></svg>">
 
-  <style>
-    * { font-family: 'Nunito', sans-serif; }
-    body { box-sizing: border-box; }
-
-    .star-icon { transition: transform 0.3s ease; cursor: pointer; }
-    .star-icon:hover { transform: scale(1.1); }
-    .star-icon:active { transform: scale(0.95); }
-
-    .star-filled { filter: drop-shadow(0 0 8px #fbbf24); }
-
-    .reward-btn { transition: all 0.2s ease; }
-    .reward-btn:not(:disabled):hover { transform: scale(1.02); }
-    .reward-btn:not(:disabled):active { transform: scale(0.98); }
-    .reward-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-    @keyframes confetti-fall {
-      0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
-      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-    }
-
-    .confetti {
-      position: fixed;
-      animation: confetti-fall 3s ease-out forwards;
-    }
-
-    @keyframes celebration-pop {
-      0% { transform: scale(0); opacity: 0; }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    .celebration-pop {
-      animation: celebration-pop 0.4s ease-out forwards;
-    }
-  </style>
+<style>
+body { font-family:'Nunito',sans-serif; }
+.star { cursor:pointer; transition:0.2s; }
+.star:hover { transform:scale(1.1); }
+.star-filled { filter: drop-shadow(0 0 6px gold); }
+.modal { backdrop-filter: blur(6px); }
+.search-result:hover { background:#f1f5f9; cursor:pointer; }
+</style>
 </head>
 
-<body class="h-full bg-sky-50">
+<body class="bg-sky-50 min-h-screen">
 
-<div id="app" class="h-full w-full overflow-hidden">
-  <div id="slide-container" class="h-full w-full relative"></div>
+<div class="p-4 flex justify-between items-center">
+  <h1 class="text-3xl font-bold text-sky-700">Visual Schedule</h1>
+  <div class="flex gap-3">
+    <button onclick="openSettings()" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Settings</button>
+    <button onclick="addPage()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg">+ Add Page</button>
+  </div>
+</div>
 
-  <div id="celebration-overlay"
-       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
-    <div class="bg-white rounded-3xl p-12 text-center shadow-2xl max-w-lg mx-4">
-      <div id="celebration-icon" class="text-8xl mb-6"></div>
-      <h2 id="celebration-text"
-          class="text-4xl font-extrabold text-emerald-600 mb-8"></h2>
-      <button onclick="closeCelebration()"
-              class="bg-emerald-500 hover:bg-emerald-600 text-white text-2xl font-bold py-4 px-12 rounded-2xl">
-        Awesome ⭐
-      </button>
+<div id="schedule"></div>
+
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" class="fixed inset-0 bg-black/40 hidden modal flex items-center justify-center z-50">
+  <div class="bg-white w-full max-w-4xl p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-auto">
+    <h2 class="text-2xl font-bold mb-4">Edit Schedule</h2>
+    <div id="settingsContent"></div>
+    <div class="text-right mt-4">
+      <button onclick="saveSettings()" class="bg-emerald-600 text-white px-6 py-2 rounded-lg">Save</button>
+      <button onclick="closeSettings()" class="ml-2 bg-gray-300 px-6 py-2 rounded-lg">Cancel</button>
     </div>
   </div>
 </div>
 
 <script>
-const defaultConfig = {
-  events: [
-    "Breakfast", "Writing", "Morning Meeting",
-    "English", "Recess", "Break",
-    "Snack", "Math", "PE", "Music"
-  ],
-  rewards: ["iPad Time", "Sticker"]
-};
-
-let slideStates = {};
-let currentSlide = 0;
-const totalSlides = defaultConfig.events.length;
-
-function initSlideStates() {
-  for (let i = 0; i < totalSlides; i++) {
-    slideStates[i] = { stars: [false, false, false] };
+let scheduleData = [
+  {
+    title: "Breakfast",
+    symbol: "",
+    stars:[false,false,false]
   }
-}
+];
 
-const starGray = `
-<svg viewBox="0 0 100 100" class="w-24 h-24 star-icon">
-<polygon points="50,10 61,40 95,40 68,60 79,90 50,70 21,90 32,60 5,40 39,40"
-fill="#cbd5e1"/>
-</svg>`;
+let rewards = [
+  { name:"iPad Time" },
+  { name:"Sticker" }
+];
 
-const starYellow = `
-<svg viewBox="0 0 100 100" class="w-24 h-24 star-icon star-filled">
-<polygon points="50,10 61,40 95,40 68,60 79,90 50,70 21,90 32,60 5,40 39,40"
-fill="#fbbf24"/>
-</svg>`;
+function renderSchedule(){
+  const container = document.getElementById("schedule");
+  container.innerHTML = "";
 
-function renderSlides() {
-  const container = document.getElementById('slide-container');
-  const eventTitle = defaultConfig.events[currentSlide];
-  const state = slideStates[currentSlide];
-  const allStars = state.stars.every(s => s);
+  scheduleData.forEach((page,index)=>{
+    const allStars = page.stars.every(s=>s);
 
-  container.innerHTML = `
-    <div class="absolute inset-0 p-6 flex flex-col">
-      
-      <div class="absolute top-4 right-4">
-        <button onclick="nextSlide()"
-          class="bg-white text-sky-600 font-bold py-3 px-6 rounded-xl shadow">
-          Next Event →
-        </button>
-      </div>
+    container.innerHTML += `
+      <div class="bg-white m-6 p-6 rounded-3xl shadow-xl">
+        <div class="flex justify-between items-center">
+          <h2 class="text-4xl font-bold text-sky-700">${page.title}</h2>
+          <button onclick="removePage(${index})" class="text-red-500 font-bold">Delete</button>
+        </div>
 
-      <div class="absolute top-4 left-4 bg-white px-4 py-2 rounded-full font-bold shadow">
-        ${currentSlide + 1} of ${totalSlides}
-      </div>
+        <div class="text-center mt-6">
+          ${page.symbol 
+            ? `<img src="${page.symbol}" class="w-40 h-40 object-contain mx-auto">`
+            : `<div class="text-gray-400">No symbol selected</div>`}
+        </div>
 
-      <div class="flex-none text-center pt-16">
-        <h1 class="text-5xl font-extrabold text-sky-800">${eventTitle}</h1>
-      </div>
-
-      <div class="flex-1 flex flex-col items-center justify-center">
-        <div class="flex gap-6 mb-4">
-          ${state.stars.map((filled, i) => `
-            <div onclick="tapStar(${i})">
-              ${filled ? starYellow : starGray}
-            </div>
+        <div class="flex justify-center gap-6 mt-6">
+          ${page.stars.map((filled,i)=>`
+            <svg onclick="toggleStar(${index},${i})"
+              viewBox="0 0 100 100"
+              class="w-16 h-16 star ${filled?'star-filled':''}">
+              <polygon points="50,10 61,40 95,40 68,60 79,90 50,70 21,90 32,60 5,40 39,40"
+                fill="${filled?'#fbbf24':'#cbd5e1'}"/>
+            </svg>
           `).join("")}
         </div>
-        <p class="text-2xl font-bold text-sky-700">Earn 3 stars!</p>
-      </div>
 
-      <div class="text-center pb-10">
-        ${defaultConfig.rewards.map(r => `
-          <button
-            onclick="chooseReward('${r}')"
-            ${allStars ? "" : "disabled"}
-            class="reward-btn bg-white rounded-2xl p-6 shadow-xl border-4
-            ${allStars ? "border-emerald-400" : "border-gray-200"} m-3 text-2xl font-bold">
-            ${r}
-          </button>
-        `).join("")}
+        <div class="text-center mt-8">
+          ${rewards.map(r=>`
+            <button onclick="chooseReward('${r.name}',${index})"
+              ${allStars?'':'disabled'}
+              class="m-2 px-6 py-3 rounded-xl text-lg font-bold
+              ${allStars?'bg-emerald-500 text-white':'bg-gray-200 text-gray-400'}">
+              ${r.name}
+            </button>
+          `).join("")}
+        </div>
       </div>
-
-    </div>
-  `;
+    `;
+  });
 }
 
-function tapStar(index) {
-  if (!slideStates[currentSlide].stars[index]) {
-    slideStates[currentSlide].stars[index] = true;
-    renderSlides();
+function toggleStar(pageIndex,starIndex){
+  scheduleData[pageIndex].stars[starIndex] = true;
+  renderSchedule();
+}
+
+function chooseReward(name,pageIndex){
+  if(!scheduleData[pageIndex].stars.every(s=>s)) return;
+  alert("You chose " + name + "!");
+}
+
+function addPage(){
+  scheduleData.push({
+    title:"New Event",
+    symbol:"",
+    stars:[false,false,false]
+  });
+  renderSchedule();
+}
+
+function removePage(index){
+  scheduleData.splice(index,1);
+  renderSchedule();
+}
+
+/* ---------------- SETTINGS + SYMBOL SEARCH ---------------- */
+
+function openSettings(){
+  document.getElementById("settingsModal").classList.remove("hidden");
+  renderSettings();
+}
+
+function renderSettings(){
+  const content = document.getElementById("settingsContent");
+  content.innerHTML = "";
+
+  scheduleData.forEach((page,i)=>{
+    content.innerHTML += `
+      <div class="border p-4 rounded-xl mb-6">
+        <label class="font-bold">Event Title</label>
+        <input type="text" value="${page.title}" 
+          onchange="scheduleData[${i}].title=this.value"
+          class="w-full border p-2 rounded mb-2">
+
+        <label class="font-bold">Search Symbol</label>
+        <div class="flex gap-2 mb-2">
+          <input type="text" id="searchInput${i}"
+            class="w-full border p-2 rounded"
+            placeholder="Type word (e.g., eat, math, play)">
+          <button onclick="searchSymbols(${i})"
+            class="bg-sky-600 text-white px-4 rounded">Search</button>
+        </div>
+
+        <div id="results${i}" class="grid grid-cols-4 gap-2"></div>
+      </div>
+    `;
+  });
+}
+
+async function searchSymbols(index){
+  const query = document.getElementById("searchInput"+index).value;
+  const resultsContainer = document.getElementById("results"+index);
+  resultsContainer.innerHTML = "Searching...";
+
+  try{
+    const openRes = await fetch(
+      `https://www.opensymbols.org/api/v1/symbols/search?q=${query}`
+    );
+    const openData = await openRes.json();
+
+    const globalRes = await fetch(
+      `https://www.globalsymbols.com/api/v1/symbols/search?q=${query}`
+    );
+    const globalData = await globalRes.json();
+
+    const combined = [
+      ...(openData || []),
+      ...(globalData || [])
+    ].slice(0,16);
+
+    resultsContainer.innerHTML = "";
+
+    combined.forEach(symbol=>{
+      const imgUrl = symbol.image_url || symbol.image || symbol.url;
+      if(!imgUrl) return;
+
+      resultsContainer.innerHTML += `
+        <div class="search-result p-2 rounded border"
+          onclick="selectSymbol(${index},'${imgUrl}')">
+          <img src="${imgUrl}" class="w-20 h-20 object-contain mx-auto">
+        </div>
+      `;
+    });
+
+  }catch(err){
+    resultsContainer.innerHTML = "Search failed (API may block CORS on GitHub Pages).";
   }
 }
 
-function nextSlide() {
-  currentSlide = (currentSlide + 1) % totalSlides;
-  renderSlides();
+function selectSymbol(index,url){
+  scheduleData[index].symbol = url;
+  renderSettings();
+  renderSchedule();
 }
 
-function chooseReward(name) {
-  if (!slideStates[currentSlide].stars.every(s => s)) return;
-  document.getElementById("celebration-text").textContent =
-    "You chose " + name + "!";
-  document.getElementById("celebration-overlay").classList.remove("hidden");
+function saveSettings(){
+  closeSettings();
+  renderSchedule();
 }
 
-function closeCelebration() {
-  document.getElementById("celebration-overlay").classList.add("hidden");
+function closeSettings(){
+  document.getElementById("settingsModal").classList.add("hidden");
 }
 
-initSlideStates();
-renderSlides();
+renderSchedule();
 </script>
 
 </body>

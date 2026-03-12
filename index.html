@@ -1,633 +1,180 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" class="h-full">
 <head>
-  <meta charset="UTF-8" />
-  <!--
-    Disable user scaling so this feels like a native app on iPad.
-    Teachers: do not change this meta tag.
-  -->
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0,
-             maximum-scale=1.0, user-scalable=no"
-  />
-  <title>My Visual Schedule</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visual Schedule</title>
 
-  <!-- =====================================================================
-       STYLES
-       ===================================================================== -->
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+
   <style>
-    /* ---- Reset & Base ---- */
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      /* Prevent accidental text selection when tapping quickly */
-      -webkit-user-select: none;
-      user-select: none;
-      /* Prevent double-tap zoom on buttons */
-      touch-action: manipulation;
+    * { font-family: 'Nunito', sans-serif; }
+    body { box-sizing: border-box; }
+
+    .star-icon { transition: transform 0.3s ease; cursor: pointer; }
+    .star-icon:hover { transform: scale(1.1); }
+    .star-icon:active { transform: scale(0.95); }
+
+    .star-filled { filter: drop-shadow(0 0 8px #fbbf24); }
+
+    .reward-btn { transition: all 0.2s ease; }
+    .reward-btn:not(:disabled):hover { transform: scale(1.02); }
+    .reward-btn:not(:disabled):active { transform: scale(0.98); }
+    .reward-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    @keyframes confetti-fall {
+      0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
     }
 
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden; /* No scrolling — full-screen app feel */
-    }
-
-    body {
-      font-family: "Helvetica Neue", Arial, sans-serif;
-      background: #d6eaf8; /* Soft blue background */
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-      height: 100dvh; /* Dynamic viewport height for iPad Safari */
-      padding: 24px 20px 32px;
-    }
-
-    /* ---- Header: step counter ---- */
-    #step-counter {
-      font-size: 1.1rem;
-      color: #5d6d7e;
-      letter-spacing: 0.05em;
-      font-weight: 600;
-      text-align: center;
-    }
-
-    /* ---- Event Card ---- */
-    #event-card {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      gap: 16px;
-      width: 100%;
-      max-width: 680px;
-    }
-
-    #event-icon {
-      font-size: clamp(80px, 18vw, 150px);
-      line-height: 1;
-    }
-
-    #event-title {
-      font-size: clamp(2rem, 6vw, 4rem);
-      font-weight: 800;
-      color: #1a5276;
-      line-height: 1.1;
-    }
-
-    /* ---- Stars ---- */
-    #stars-container {
-      display: flex;
-      gap: clamp(16px, 4vw, 36px);
-      justify-content: center;
-      align-items: center;
-    }
-
-    .star {
-      font-size: clamp(60px, 14vw, 100px);
-      line-height: 1;
-      cursor: pointer;
-      transition: transform 0.15s ease;
-      /* Ensure the tap target is large enough */
-      min-width: 80px;
-      min-height: 80px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .star:active {
-      transform: scale(0.88);
-    }
-
-    /* Gold pop animation when star is earned */
-    @keyframes starPop {
-      0%   { transform: scale(1); }
-      50%  { transform: scale(1.35); }
-      100% { transform: scale(1); }
-    }
-
-    .star.earned {
-      animation: starPop 0.3s ease;
-    }
-
-    /* ---- Reward Buttons ---- */
-    #rewards-container {
-      display: flex;
-      gap: 16px;
-      width: 100%;
-      max-width: 680px;
-    }
-
-    .reward-btn {
-      flex: 1;
-      min-height: 80px;
-      font-size: clamp(1.1rem, 3.5vw, 1.6rem);
-      font-weight: 700;
-      border: none;
-      border-radius: 18px;
-      cursor: pointer;
-      padding: 12px 10px;
-      transition: background 0.2s ease, opacity 0.2s ease, transform 0.1s ease;
-      color: #fff;
-      line-height: 1.2;
-    }
-
-    .reward-btn:not(:disabled) {
-      background: #27ae60; /* Green when active */
-      box-shadow: 0 6px 0 #1e8449;
-    }
-
-    .reward-btn:not(:disabled):active {
-      transform: translateY(4px);
-      box-shadow: 0 2px 0 #1e8449;
-    }
-
-    .reward-btn:disabled {
-      background: #a9cce3;
-      color: #d6eaf8;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    /* ---- Next Event Button ---- */
-    #next-btn {
-      min-height: 80px;
-      width: 100%;
-      max-width: 680px;
-      font-size: clamp(1.1rem, 3.5vw, 1.6rem);
-      font-weight: 700;
-      border: none;
-      border-radius: 18px;
-      cursor: pointer;
-      padding: 12px 10px;
-      background: #2980b9;
-      color: #fff;
-      box-shadow: 0 6px 0 #1a6892;
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
-    }
-
-    #next-btn:active {
-      transform: translateY(4px);
-      box-shadow: 0 2px 0 #1a6892;
-    }
-
-    /* ---- All-Done Screen ---- */
-    #done-screen {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      gap: 20px;
-      height: 100%;
-      width: 100%;
-    }
-
-    #done-screen .done-icon {
-      font-size: clamp(80px, 18vw, 140px);
-    }
-
-    #done-screen h1 {
-      font-size: clamp(2rem, 6vw, 3.5rem);
-      font-weight: 800;
-      color: #1a5276;
-    }
-
-    #done-screen p {
-      font-size: clamp(1.1rem, 3vw, 1.6rem);
-      color: #5d6d7e;
-    }
-
-    /* ---- Celebration Overlay ---- */
-    #celebration-overlay {
-      display: none;
+    .confetti {
       position: fixed;
-      inset: 0;
-      background: rgba(26, 82, 118, 0.93);
-      z-index: 100;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 30px 24px;
-      gap: 24px;
+      animation: confetti-fall 3s ease-out forwards;
     }
 
-    #celebration-overlay.visible {
-      display: flex;
+    @keyframes celebration-pop {
+      0% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
     }
 
-    #celebration-message {
-      font-size: clamp(1.8rem, 5.5vw, 3.5rem);
-      font-weight: 800;
-      color: #ffd700;
-      line-height: 1.2;
-      white-space: pre-line; /* allows \n in textContent to render as line breaks */
-    }
-
-    #celebration-sub {
-      font-size: clamp(1.1rem, 3.5vw, 1.8rem);
-      color: #d6eaf8;
-    }
-
-    #continue-btn {
-      min-height: 80px;
-      min-width: 260px;
-      font-size: clamp(1.1rem, 3.5vw, 1.6rem);
-      font-weight: 700;
-      border: none;
-      border-radius: 18px;
-      cursor: pointer;
-      padding: 12px 32px;
-      background: #27ae60;
-      color: #fff;
-      box-shadow: 0 6px 0 #1e8449;
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
-      margin-top: 8px;
-    }
-
-    #continue-btn:active {
-      transform: translateY(4px);
-      box-shadow: 0 2px 0 #1e8449;
-    }
-
-    /* ---- Confetti Canvas ---- */
-    #confetti-canvas {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 99;
+    .celebration-pop {
+      animation: celebration-pop 0.4s ease-out forwards;
     }
   </style>
 </head>
-<body>
 
-  <!-- =====================================================================
-       MAIN APP HTML
-       ===================================================================== -->
+<body class="h-full bg-sky-50">
 
-  <!-- Step counter: "Event 1 of 5" -->
-  <div id="step-counter" aria-live="polite"></div>
+<div id="app" class="h-full w-full overflow-hidden">
+  <div id="slide-container" class="h-full w-full relative"></div>
 
-  <!-- Current event icon + title -->
-  <div id="event-card" role="main">
-    <div id="event-icon" aria-hidden="true"></div>
-    <div id="event-title"></div>
+  <div id="celebration-overlay"
+       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-3xl p-12 text-center shadow-2xl max-w-lg mx-4">
+      <div id="celebration-icon" class="text-8xl mb-6"></div>
+      <h2 id="celebration-text"
+          class="text-4xl font-extrabold text-emerald-600 mb-8"></h2>
+      <button onclick="closeCelebration()"
+              class="bg-emerald-500 hover:bg-emerald-600 text-white text-2xl font-bold py-4 px-12 rounded-2xl">
+        Awesome ⭐
+      </button>
+    </div>
   </div>
+</div>
 
-  <!-- 3 tappable stars -->
-  <div id="stars-container" role="group" aria-label="Stars earned">
-    <span class="star" role="button" aria-label="Star 1" data-index="0">⭐</span>
-    <span class="star" role="button" aria-label="Star 2" data-index="1">⭐</span>
-    <span class="star" role="button" aria-label="Star 3" data-index="2">⭐</span>
-  </div>
+<script>
+const defaultConfig = {
+  events: [
+    "Breakfast", "Writing", "Morning Meeting",
+    "English", "Recess", "Break",
+    "Snack", "Math", "PE", "Music"
+  ],
+  rewards: ["iPad Time", "Sticker"]
+};
 
-  <!-- Reward choice buttons -->
-  <div id="rewards-container" aria-label="Reward choices">
-    <button class="reward-btn" id="reward-btn-1" disabled></button>
-    <button class="reward-btn" id="reward-btn-2" disabled></button>
-  </div>
+let slideStates = {};
+let currentSlide = 0;
+const totalSlides = defaultConfig.events.length;
 
-  <!-- Next event button (shown when reward not yet needed) -->
-  <button id="next-btn">Next Event ➡️</button>
+function initSlideStates() {
+  for (let i = 0; i < totalSlides; i++) {
+    slideStates[i] = { stars: [false, false, false] };
+  }
+}
 
-  <!-- All-done screen (replaces everything when schedule is complete) -->
-  <div id="done-screen" role="status">
-    <div class="done-icon">🎉</div>
-    <h1>All Done!</h1>
-    <p>Great job today! 🌟</p>
-  </div>
+const starGray = `
+<svg viewBox="0 0 100 100" class="w-24 h-24 star-icon">
+<polygon points="50,10 61,40 95,40 68,60 79,90 50,70 21,90 32,60 5,40 39,40"
+fill="#cbd5e1"/>
+</svg>`;
 
-  <!-- Confetti canvas (below overlay in z-order, rendered on top via z-index) -->
-  <canvas id="confetti-canvas" aria-hidden="true"></canvas>
+const starYellow = `
+<svg viewBox="0 0 100 100" class="w-24 h-24 star-icon star-filled">
+<polygon points="50,10 61,40 95,40 68,60 79,90 50,70 21,90 32,60 5,40 39,40"
+fill="#fbbf24"/>
+</svg>`;
 
-  <!-- Celebration overlay (shown on reward tap) -->
-  <div id="celebration-overlay" role="dialog" aria-modal="true" aria-labelledby="celebration-message">
-    <div id="celebration-message"></div>
-    <div id="celebration-sub">Amazing work! 🌟</div>
-    <button id="continue-btn">Continue ➡️</button>
-  </div>
+function renderSlides() {
+  const container = document.getElementById('slide-container');
+  const eventTitle = defaultConfig.events[currentSlide];
+  const state = slideStates[currentSlide];
+  const allStars = state.stars.every(s => s);
 
-  <!-- =====================================================================
-       JAVASCRIPT
-       ===================================================================== -->
-  <script>
-    /* ===========================================================
-       ✏️  TEACHER-EDITABLE SECTION — Change events here!
-       ===========================================================
-       Each event needs:
-         title        — What activity is this?
-         icon         — An emoji shown large on screen
-         rewardOption1 — First reward choice shown on the green button
-         rewardOption2 — Second reward choice shown on the green button
-    =========================================================== */
-    const events = [
-      {
-        title: "Morning Meeting",
-        icon: "☀️",
-        rewardOption1: "Free Choice",
-        rewardOption2: "Tablet Time"
-      },
-      {
-        title: "Reading",
-        icon: "📚",
-        rewardOption1: "Sticker",
-        rewardOption2: "Extra Recess"
-      },
-      {
-        title: "Math",
-        icon: "🔢",
-        rewardOption1: "Game Time",
-        rewardOption2: "Free Draw"
-      },
-      {
-        title: "Snack",
-        icon: "🍎",
-        rewardOption1: "Music",
-        rewardOption2: "Tablet Time"
-      },
-      {
-        title: "PE / Movement",
-        icon: "🏃",
-        rewardOption1: "Free Choice",
-        rewardOption2: "Sticker"
-      },
-      {
-        title: "Pack Up & Go Home",
-        icon: "🎒",
-        rewardOption1: "High Five",
-        rewardOption2: "Sticker"
-      }
-    ];
-    /* ===========================================================
-       END OF TEACHER-EDITABLE SECTION
-    =========================================================== */
+  container.innerHTML = `
+    <div class="absolute inset-0 p-6 flex flex-col">
+      
+      <div class="absolute top-4 right-4">
+        <button onclick="nextSlide()"
+          class="bg-white text-sky-600 font-bold py-3 px-6 rounded-xl shadow">
+          Next Event →
+        </button>
+      </div>
 
+      <div class="absolute top-4 left-4 bg-white px-4 py-2 rounded-full font-bold shadow">
+        ${currentSlide + 1} of ${totalSlides}
+      </div>
 
-    /* -----------------------------------------------------------
-       App State
-    ----------------------------------------------------------- */
-    let currentEventIndex = 0;
-    const starsFilled = [false, false, false]; // tracks each star's state
+      <div class="flex-none text-center pt-16">
+        <h1 class="text-5xl font-extrabold text-sky-800">${eventTitle}</h1>
+      </div>
 
-    /* -----------------------------------------------------------
-       Element References
-    ----------------------------------------------------------- */
-    const stepCounter      = document.getElementById("step-counter");
-    const eventIcon        = document.getElementById("event-icon");
-    const eventTitle       = document.getElementById("event-title");
-    const starsContainer   = document.getElementById("stars-container");
-    const starEls          = document.querySelectorAll(".star");
-    const rewardBtn1       = document.getElementById("reward-btn-1");
-    const rewardBtn2       = document.getElementById("reward-btn-2");
-    const nextBtn          = document.getElementById("next-btn");
-    const doneScreen       = document.getElementById("done-screen");
-    const overlay          = document.getElementById("celebration-overlay");
-    const celebrationMsg   = document.getElementById("celebration-message");
-    const continueBtn      = document.getElementById("continue-btn");
-    const canvas           = document.getElementById("confetti-canvas");
-    const ctx              = canvas.getContext("2d");
+      <div class="flex-1 flex flex-col items-center justify-center">
+        <div class="flex gap-6 mb-4">
+          ${state.stars.map((filled, i) => `
+            <div onclick="tapStar(${i})">
+              ${filled ? starYellow : starGray}
+            </div>
+          `).join("")}
+        </div>
+        <p class="text-2xl font-bold text-sky-700">Earn 3 stars!</p>
+      </div>
 
-    /* -----------------------------------------------------------
-       Render current event
-    ----------------------------------------------------------- */
-    function renderEvent() {
-      const ev = events[currentEventIndex];
+      <div class="text-center pb-10">
+        ${defaultConfig.rewards.map(r => `
+          <button
+            onclick="chooseReward('${r}')"
+            ${allStars ? "" : "disabled"}
+            class="reward-btn bg-white rounded-2xl p-6 shadow-xl border-4
+            ${allStars ? "border-emerald-400" : "border-gray-200"} m-3 text-2xl font-bold">
+            ${r}
+          </button>
+        `).join("")}
+      </div>
 
-      // Update step counter
-      stepCounter.textContent =
-        `Event ${currentEventIndex + 1} of ${events.length}`;
+    </div>
+  `;
+}
 
-      // Update icon and title
-      eventIcon.textContent  = ev.icon;
-      eventTitle.textContent = ev.title;
+function tapStar(index) {
+  if (!slideStates[currentSlide].stars[index]) {
+    slideStates[currentSlide].stars[index] = true;
+    renderSlides();
+  }
+}
 
-      // Update reward button labels
-      rewardBtn1.textContent = ev.rewardOption1;
-      rewardBtn2.textContent = ev.rewardOption2;
+function nextSlide() {
+  currentSlide = (currentSlide + 1) % totalSlides;
+  renderSlides();
+}
 
-      // Reset stars visually and in state
-      resetStars();
-    }
+function chooseReward(name) {
+  if (!slideStates[currentSlide].stars.every(s => s)) return;
+  document.getElementById("celebration-text").textContent =
+    "You chose " + name + "!";
+  document.getElementById("celebration-overlay").classList.remove("hidden");
+}
 
-    /* -----------------------------------------------------------
-       Reset stars to gray/unfilled
-    ----------------------------------------------------------- */
-    function resetStars() {
-      starsFilled[0] = false;
-      starsFilled[1] = false;
-      starsFilled[2] = false;
+function closeCelebration() {
+  document.getElementById("celebration-overlay").classList.add("hidden");
+}
 
-      starEls.forEach((star) => {
-        star.textContent = "⭐"; // reset to star emoji; filter below makes it appear gray
-        star.style.filter = "grayscale(1)"; // starts gray
-        star.classList.remove("earned");
-        star.setAttribute("aria-pressed", "false");
-      });
+initSlideStates();
+renderSlides();
+</script>
 
-      // Disable reward buttons
-      rewardBtn1.disabled = true;
-      rewardBtn2.disabled = true;
-    }
-
-    /* -----------------------------------------------------------
-       Handle star tap
-    ----------------------------------------------------------- */
-    starEls.forEach((star) => {
-      star.addEventListener("click", () => {
-        const i = parseInt(star.dataset.index, 10);
-
-        // Ignore if already filled
-        if (starsFilled[i]) return;
-
-        starsFilled[i] = true;
-        star.style.filter = "grayscale(0)"; // gold
-        star.classList.remove("earned");
-        // Re-trigger animation: reading offsetWidth forces a reflow, which
-        // allows the browser to restart the CSS animation when we re-add the class.
-        const _reflow = star.offsetWidth; // eslint-disable-line no-unused-expressions
-        star.classList.add("earned");
-        star.setAttribute("aria-pressed", "true");
-
-        // Check if all 3 stars are filled
-        if (starsFilled.every(Boolean)) {
-          enableRewards();
-        }
-      });
-    });
-
-    /* -----------------------------------------------------------
-       Enable reward buttons once all 3 stars are filled
-    ----------------------------------------------------------- */
-    function enableRewards() {
-      rewardBtn1.disabled = false;
-      rewardBtn2.disabled = false;
-    }
-
-    /* -----------------------------------------------------------
-       Handle reward button tap
-    ----------------------------------------------------------- */
-    function handleRewardTap(rewardLabel) {
-      celebrationMsg.textContent = `You chose\n${rewardLabel}! 🎉`;
-      overlay.classList.add("visible");
-      startConfetti();
-    }
-
-    rewardBtn1.addEventListener("click", () => {
-      if (!rewardBtn1.disabled) handleRewardTap(rewardBtn1.textContent);
-    });
-
-    rewardBtn2.addEventListener("click", () => {
-      if (!rewardBtn2.disabled) handleRewardTap(rewardBtn2.textContent);
-    });
-
-    /* -----------------------------------------------------------
-       Continue button: close overlay and advance to next event
-    ----------------------------------------------------------- */
-    continueBtn.addEventListener("click", () => {
-      stopConfetti();
-      overlay.classList.remove("visible");
-      advanceEvent();
-    });
-
-    /* -----------------------------------------------------------
-       Next Event button: advance without requiring reward
-    ----------------------------------------------------------- */
-    nextBtn.addEventListener("click", () => {
-      advanceEvent();
-    });
-
-    /* -----------------------------------------------------------
-       Advance to the next event, or show done screen
-    ----------------------------------------------------------- */
-    function advanceEvent() {
-      currentEventIndex++;
-
-      if (currentEventIndex >= events.length) {
-        showDoneScreen();
-      } else {
-        renderEvent();
-      }
-    }
-
-    /* -----------------------------------------------------------
-       Show the "All Done" screen
-    ----------------------------------------------------------- */
-    function showDoneScreen() {
-      // Hide main schedule UI
-      stepCounter.style.display      = "none";
-      document.getElementById("event-card").style.display    = "none";
-      starsContainer.style.display   = "none";
-      document.getElementById("rewards-container").style.display = "none";
-      nextBtn.style.display          = "none";
-
-      // Show done screen
-      doneScreen.style.display = "flex";
-    }
-
-
-    /* ===========================================================
-       CONFETTI ANIMATION
-       A lightweight particle system — no external libraries needed.
-    =========================================================== */
-    let confettiParticles = [];
-    let confettiFrame     = null;
-    let confettiActive    = false;
-
-    /* Confetti color palette */
-    const CONFETTI_COLORS = [
-      "#ffd700", "#ff6b6b", "#48dbfb", "#ff9f43",
-      "#1dd1a1", "#ff6b81", "#f9ca24", "#6c5ce7"
-    ];
-
-    function resizeCanvas() {
-      canvas.width  = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
-
-    /* Create a single confetti particle */
-    function makeParticle() {
-      return {
-        x:    Math.random() * canvas.width,
-        y:    -10,
-        w:    Math.random() * 10 + 6,   // width
-        h:    Math.random() * 5  + 4,   // height
-        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-        angle: Math.random() * Math.PI * 2,
-        spin:  (Math.random() - 0.5) * 0.2,
-        vx:   (Math.random() - 0.5) * 3,
-        vy:   Math.random() * 3 + 2
-      };
-    }
-
-    function startConfetti() {
-      confettiActive = true;
-      confettiParticles = [];
-
-      // Spawn an initial burst of particles
-      for (let i = 0; i < 120; i++) {
-        const p = makeParticle();
-        p.y = Math.random() * canvas.height * 0.5; // spread at various heights
-        confettiParticles.push(p);
-      }
-
-      function animate() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Add a trickle of new particles while active
-        if (confettiActive && confettiParticles.length < 200) {
-          confettiParticles.push(makeParticle());
-        }
-
-        confettiParticles.forEach((p) => {
-          // Move
-          p.x     += p.vx;
-          p.y     += p.vy;
-          p.angle += p.spin;
-
-          // Draw rotated rectangle
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate(p.angle);
-          ctx.fillStyle = p.color;
-          ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-          ctx.restore();
-        });
-
-        // Remove particles that have fallen off screen
-        confettiParticles = confettiParticles.filter((p) => p.y < canvas.height + 20);
-
-        confettiFrame = requestAnimationFrame(animate);
-      }
-
-      confettiFrame = requestAnimationFrame(animate);
-    }
-
-    function stopConfetti() {
-      confettiActive = false;
-      if (confettiFrame) {
-        cancelAnimationFrame(confettiFrame);
-        confettiFrame = null;
-      }
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      confettiParticles = [];
-    }
-
-
-    /* -----------------------------------------------------------
-       Bootstrap — show the first event on load
-    ----------------------------------------------------------- */
-    renderEvent();
-
-  </script>
 </body>
 </html>

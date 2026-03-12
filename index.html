@@ -1,10 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Visual Schedule</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+
+<style>
+body { font-family:'Nunito',sans-serif; }
+.star { cursor:pointer; transition:0.2s; }
+.star:hover { transform:scale(1.1); }
+.modal { backdrop-filter: blur(6px); }
+.symbol-tile:hover { background:#f1f5f9; cursor:pointer; }
+</style>
+</head>
+
+<body class="bg-sky-50 min-h-screen">
+
+<div class="p-4 flex justify-between items-center">
+  <h1 class="text-3xl font-bold text-sky-700">Visual Schedule</h1>
+  <div class="flex gap-3">
+    <button onclick="openSettings()" class="bg-sky-600 text-white px-4 py-2 rounded-lg">Settings</button>
+    <button onclick="addPage()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg">+ Add Page</button>
+  </div>
+</div>
+
+<div id="schedule"></div>
+
+<!-- SETTINGS MODAL -->
+<div id="settingsModal" class="fixed inset-0 bg-black/40 hidden modal flex items-center justify-center z-50">
+  <div class="bg-white w-full max-w-4xl p-6 rounded-2xl shadow-xl max-h-[90vh] overflow-auto">
+    <h2 class="text-2xl font-bold mb-4">Edit Schedule</h2>
+    <div id="settingsContent"></div>
+    <div class="text-right mt-4">
+      <button onclick="closeSettings()" class="bg-gray-300 px-6 py-2 rounded-lg">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
+
+/* ================= STATE ================= */
+
 let scheduleData = [
-  {
-    title: "Breakfast",
-    symbol: "",
-    stars:[false,false,false]
-  }
+  { title:"Breakfast", symbol:"", stars:[false,false,false] }
 ];
 
 let rewards = [
@@ -12,140 +53,251 @@ let rewards = [
   { name:"Sticker" }
 ];
 
+/* ================= RENDER ================= */
+
 function renderSchedule(){
   const container = document.getElementById("schedule");
   container.innerHTML = "";
 
   scheduleData.forEach((page,index)=>{
+    const card = document.createElement("div");
+    card.className = "bg-white m-6 p-6 rounded-3xl shadow-xl";
+
+    const header = document.createElement("div");
+    header.className = "flex justify-between items-center";
+
+    const title = document.createElement("h2");
+    title.className = "text-4xl font-bold text-sky-700";
+    title.textContent = page.title;
+
+    const del = document.createElement("button");
+    del.textContent = "Delete";
+    del.className = "text-red-500 font-bold";
+    del.onclick = () => removePage(index);
+
+    header.appendChild(title);
+    header.appendChild(del);
+    card.appendChild(header);
+
+    const imgWrap = document.createElement("div");
+    imgWrap.className = "text-center mt-6";
+
+    if(page.symbol){
+      const img = document.createElement("img");
+      img.src = page.symbol;
+      img.className = "w-40 h-40 object-contain mx-auto";
+      imgWrap.appendChild(img);
+    } else {
+      imgWrap.innerHTML = "<div class='text-gray-400'>No symbol selected</div>";
+    }
+
+    card.appendChild(imgWrap);
+
+    const starWrap = document.createElement("div");
+    starWrap.className = "flex justify-center gap-6 mt-6";
+
+    page.stars.forEach((filled,i)=>{
+      const svg = document.createElementNS("http://www.w3.org/2000/svg","svg");
+      svg.setAttribute("viewBox","0 0 100 100");
+      svg.setAttribute("class","w-16 h-16 star");
+
+      const poly = document.createElementNS("http://www.w3.org/2000/svg","polygon");
+      poly.setAttribute("points","50,10 61,40 95,40 68,60 79,90 50,70 21,90 32,60 5,40 39,40");
+      poly.setAttribute("fill", filled ? "#fbbf24" : "#cbd5e1");
+
+      svg.appendChild(poly);
+      svg.onclick = () => toggleStar(index,i);
+      starWrap.appendChild(svg);
+    });
+
+    card.appendChild(starWrap);
+
+    const rewardWrap = document.createElement("div");
+    rewardWrap.className = "text-center mt-8";
+
     const allStars = page.stars.every(s=>s);
 
-    container.innerHTML += `
-      <div class="bg-white m-6 p-6 rounded-3xl shadow-xl">
-        <div class="flex justify-between items-center">
-          <h2 class="text-4xl font-bold text-sky-700">${page.title}</h2>
-          <button onclick="removePage(${index})" class="text-red-500 font-bold">Delete</button>
-        </div>
+    rewards.forEach(r=>{
+      const btn = document.createElement("button");
+      btn.textContent = r.name;
+      btn.className = "m-2 px-6 py-3 rounded-xl text-lg font-bold";
+      btn.disabled = !allStars;
+      btn.classList.add(allStars ? "bg-emerald-500 text-white" : "bg-gray-200 text-gray-400");
+      btn.onclick = () => {
+        if(allStars) alert("You chose " + r.name + "!");
+      };
+      rewardWrap.appendChild(btn);
+    });
 
-        <div class="text-center mt-6">
-          ${
-            page.symbol
-              ? `<img src="${page.symbol}" class="w-40 h-40 object-contain mx-auto">`
-              : `<div class="text-gray-400">No symbol selected</div>`
-          }
-        </div>
-
-        <div class="flex justify-center gap-6 mt-6">
-          ${page.stars.map((filled,i)=>`
-            <svg onclick="toggleStar(${index},${i})"
-              viewBox="0 0 100 100"
-              class="w-16 h-16 cursor-pointer">
-              <polygon points="50,10 61,40 95,40 68,60 79,90 50,70 21,90 32,60 5,40 39,40"
-                fill="${filled?'#fbbf24':'#cbd5e1'}"/>
-            </svg>
-          `).join("")}
-        </div>
-
-        <div class="text-center mt-8">
-          ${rewards.map(r=>`
-            <button onclick="chooseReward('${r.name}',${index})"
-              ${allStars?'':'disabled'}
-              class="m-2 px-6 py-3 rounded-xl text-lg font-bold
-              ${allStars?'bg-emerald-500 text-white':'bg-gray-200 text-gray-400'}">
-              ${r.name}
-            </button>
-          `).join("")}
-        </div>
-      </div>
-    `;
+    card.appendChild(rewardWrap);
+    container.appendChild(card);
   });
 }
 
-function toggleStar(pageIndex,starIndex){
-  scheduleData[pageIndex].stars[starIndex] = true;
-  renderSchedule();
-}
+/* ================= LOGIC ================= */
 
-function chooseReward(name,pageIndex){
-  if(!scheduleData[pageIndex].stars.every(s=>s)) return;
-  alert("You chose " + name + "!");
+function toggleStar(p,s){
+  scheduleData[p].stars[s] = true;
+  renderSchedule();
 }
 
 function addPage(){
-  scheduleData.push({
-    title:"New Event",
-    symbol:"",
-    stars:[false,false,false]
+  scheduleData.push({ title:"New Event", symbol:"", stars:[false,false,false] });
+  renderSchedule();
+}
+
+function removePage(i){
+  scheduleData.splice(i,1);
+  renderSchedule();
+}
+
+/* ================= SETTINGS ================= */
+
+function openSettings(){
+  document.getElementById("settingsModal").classList.remove("hidden");
+  renderSettings();
+}
+
+function closeSettings(){
+  document.getElementById("settingsModal").classList.add("hidden");
+}
+
+function renderSettings(){
+  const container = document.getElementById("settingsContent");
+  container.innerHTML = "";
+
+  scheduleData.forEach((page,index)=>{
+    const block = document.createElement("div");
+    block.className = "border p-4 rounded-xl mb-6";
+
+    block.innerHTML = `
+      <label class="font-bold">Event Title</label>
+      <input type="text" value="${page.title}"
+        onchange="scheduleData[${index}].title=this.value"
+        class="w-full border p-2 rounded mb-2">
+
+      <label class="font-bold">Search Symbol</label>
+      <div class="flex gap-2 mb-2">
+        <input type="text" id="searchInput${index}"
+          class="w-full border p-2 rounded"
+          placeholder="Type word (eat, math, play)">
+        <button onclick="searchSymbols(${index})"
+          class="bg-sky-600 text-white px-4 rounded">Search</button>
+      </div>
+
+      <div id="results${index}" class="grid grid-cols-4 gap-2"></div>
+    `;
+
+    container.appendChild(block);
   });
-  renderSchedule();
 }
 
-function removePage(index){
-  scheduleData.splice(index,1);
-  renderSchedule();
-}
-
-/* ---------- SYMBOL SEARCH FIXED ---------- */
+/* ================= SYMBOL SEARCH (WORKING ARCHITECTURE) ================= */
 
 async function searchSymbols(index){
-  const query = document.getElementById("searchInput"+index).value.trim();
-  const resultsContainer = document.getElementById("results"+index);
+  const input = document.getElementById("searchInput"+index);
+  const results = document.getElementById("results"+index);
+  const q = (input?.value || "").trim();
 
-  if(!query){
-    resultsContainer.innerHTML = "Enter a search term.";
+  if (!q){
+    results.innerHTML = "Type something to search.";
     return;
   }
 
-  resultsContainer.innerHTML = "Searching...";
+  results.innerHTML = "Searching...";
 
   try{
-    const openRes = await fetch(
-      `https://www.opensymbols.org/api/v1/symbols/search?q=${encodeURIComponent(query)}&per_page=20`
-    );
-    const openData = await openRes.json();
+    const [openResult, globalResult] = await Promise.allSettled([
+      searchOpenSymbols(q),
+      searchGlobalSymbols(q)
+    ]);
 
-    const globalRes = await fetch(
-      `https://www.globalsymbols.com/api/v1/symbols/search?q=${encodeURIComponent(query)}&per_page=20`
-    );
-    const globalData = await globalRes.json();
+    const combined = []
+      .concat(openResult.status === "fulfilled" ? openResult.value : [])
+      .concat(globalResult.status === "fulfilled" ? globalResult.value : []);
 
-    const openSymbols = openData.symbols || [];
-    const globalSymbols = globalData.symbols || [];
+    const unique = dedupeByUrl(combined);
 
-    const combined = [...openSymbols, ...globalSymbols].slice(0,20);
-
-    if(combined.length === 0){
-      resultsContainer.innerHTML = "No symbols found.";
+    if (!unique.length){
+      results.innerHTML = "No symbols found.";
       return;
     }
 
-    resultsContainer.innerHTML = "";
+    results.innerHTML = "";
 
-    combined.forEach(symbol=>{
-      if(!symbol.image_url) return;
+    unique.slice(0, 40).forEach(symbol=>{
+      const tile = document.createElement("div");
+      tile.className = "symbol-tile p-2 border rounded";
 
-      const safeUrl = symbol.image_url.replace(/'/g,"%27");
+      const img = document.createElement("img");
+      img.src = symbol.url;
+      img.className = "w-20 h-20 object-contain mx-auto";
 
-      resultsContainer.innerHTML += `
-        <div class="p-2 border rounded hover:bg-slate-100 cursor-pointer"
-          onclick="selectSymbol(${index},'${safeUrl}')">
-          <img src="${safeUrl}" class="w-20 h-20 object-contain mx-auto">
-        </div>
-      `;
+      tile.appendChild(img);
+
+      tile.onclick = ()=>{
+        scheduleData[index].symbol = symbol.url;
+        renderSettings();
+        renderSchedule();
+      };
+
+      results.appendChild(tile);
     });
 
-  }catch(err){
+  } catch(err){
     console.error(err);
-    resultsContainer.innerHTML = `
-      <div class="text-red-500">
-        Search failed. 
-        This is likely a CORS restriction from OpenSymbols/GlobalSymbols on GitHub Pages.
-      </div>
-    `;
+    results.innerHTML = "Search failed.";
   }
 }
 
-function selectSymbol(index,url){
-  scheduleData[index].symbol = url;
-  renderSchedule();
+/* ===== API HELPERS (MATCH YOUR WORKING PROJECT) ===== */
+
+async function searchOpenSymbols(q){
+  const url = `https://www.opensymbols.org/api/v2/symbols/search?q=${encodeURIComponent(q)}`;
+  const res = await fetch(url, { mode:"cors" });
+  if (!res.ok) return [];
+  const data = await res.json();
+
+  return (Array.isArray(data) ? data : [])
+    .map(x => ({
+      url: x.image_url || x.image || x.url || "",
+      label: x.name || x.label || "OpenSymbols"
+    }))
+    .filter(x => !!x.url);
 }
+
+async function searchGlobalSymbols(q){
+  const url = `https://globalsymbols.com/api/v1/symbols/search?query=${encodeURIComponent(q)}`;
+  const res = await fetch(url, { mode:"cors" });
+  if (!res.ok) return [];
+  const data = await res.json();
+
+  const items = data?.results || data?.symbols || data || [];
+
+  return (Array.isArray(items) ? items : [])
+    .map(x => ({
+      url: x.image_url || x.png || x.url || x.image || "",
+      label: x.name || x.label || "GlobalSymbols"
+    }))
+    .filter(x => !!x.url);
+}
+
+function dedupeByUrl(items){
+  const seen = new Set();
+  const out = [];
+  for (const it of items){
+    const key = String(it.url || "").trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(it);
+  }
+  return out;
+}
+
+/* ================= INIT ================= */
+
+renderSchedule();
+
 </script>
+</body>
+</html>
